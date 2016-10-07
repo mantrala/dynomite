@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 /*
  * twemproxy - A fast and lightweight proxy for memcached protocol.
@@ -71,6 +71,7 @@ struct conf_pool {
     int                backlog;               /* backlog: */
     int                client_connections;    /* client_connections: */
     int                data_store;            /* data_store: */
+    struct string      redis_auth;            /* redis auth password */
     int                preconnect;            /* preconnect: */
     int                auto_eject_hosts;      /* auto_eject_hosts: */
     int                server_connections;    /* server_connections: */
@@ -80,11 +81,11 @@ struct conf_pool {
     unsigned           valid:1;               /* valid? */
     struct conf_listen dyn_listen;            /* dyn_listen  */
     int                dyn_read_timeout;      /* inter dyn nodes' read timeout in ms */
-    int                dyn_write_timeout;     /* inter dyn nodes' write timeout in ms */ 
-    struct string      dyn_seed_provider;     /* seed provider */ 
+    int                dyn_write_timeout;     /* inter dyn nodes' write timeout in ms */
+    struct string      dyn_seed_provider;     /* seed provider */
     struct array       dyn_seeds;             /* seed nodes: conf_server array */
     int                dyn_port;
-    int                dyn_connections;       /* dyn connections */  
+    int                dyn_connections;       /* dyn connections */
     struct string      rack;                  /* this node's logical rack */
     struct array       tokens;                /* this node's token: dyn_token array */
     int                gos_interval;          /* wake up interval in ms */

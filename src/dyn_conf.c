@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 
 /*
@@ -240,6 +240,7 @@ conf_pool_init(struct conf_pool *cp, struct string *name)
 
     string_init(&cp->listen.pname);
     string_init(&cp->listen.name);
+    string_init(&cp->redis_auth);
 
     string_init(&cp->rack);
 
@@ -327,6 +328,10 @@ conf_pool_deinit(struct conf_pool *cp)
     string_deinit(&cp->listen.pname);
     string_deinit(&cp->listen.name);
 
+    if (cp->redis_auth.len > 0) {
+      string_deinit(&cp->redis_auth);
+    }
+
     conf_server_deinit(cp->conf_datastore);
     dn_free(cp->conf_datastore);
     cp->conf_datastore = NULL;
@@ -410,6 +415,8 @@ conf_pool_transform(struct server_pool *sp, struct conf_pool *cp)
         return DN_ERROR;
     }
     set_datastore_ops();
+
+    sp->redis_auth = cp->redis_auth;
     sp->timeout = cp->timeout;
     sp->backlog = cp->backlog;
 
@@ -1273,6 +1280,10 @@ static struct command conf_commands[] = {
     { string("data_store"),
       conf_set_num,
       offsetof(struct conf_pool, data_store) },
+
+    { string("redis_auth"),
+      conf_set_string,
+      offsetof(struct conf_pool, redis_auth) },
 
     { string("preconnect"),
       conf_set_bool,
@@ -2305,4 +2316,3 @@ conf_destroy(struct conf *cf)
     conf_pool_deinit(&cf->pool);
     dn_free(cf);
 }
-
