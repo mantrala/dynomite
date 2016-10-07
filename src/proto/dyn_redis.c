@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 /*
  * twemproxy - A fast and lightweight proxy for memcached protocol.
@@ -87,6 +87,7 @@ redis_arg0(struct msg *r)
     case MSG_REQ_REDIS_SRANDMEMBER:
 
     case MSG_REQ_REDIS_ZCARD:
+    case MSG_REQ_REDIS_AUTH:
 
     case MSG_REQ_REDIS_KEYS:
     case MSG_REQ_REDIS_PFCOUNT:
@@ -743,6 +744,12 @@ redis_parse_req(struct msg *r)
                 if (str4icmp(m, 'q', 'u', 'i', 't')) {
                     r->type = MSG_REQ_REDIS_QUIT;
                     r->quit = 1;
+                    break;
+                }
+
+                if (str4icmp(m, 'a', 'u', 't', 'h')) {
+                    r->type = MSG_REQ_REDIS_AUTH;
+                    r->is_read = 0;
                     break;
                 }
 
