@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 /*
  * twemproxy - A fast and lightweight proxy for memcached protocol.
@@ -33,7 +33,7 @@
  * DNODE_PEER_SERVER - outgoing connection to other dnode.
  *
  */
- 
+
 #ifndef _DYN_CONNECTION_H_
 #define _DYN_CONNECTION_H_
 #include "dyn_core.h"
@@ -82,7 +82,7 @@ struct conn_ops {
 
 typedef enum connection_type {
     CONN_UNSPECIFIED,
-    CONN_PROXY, // a dynomite proxy (listening) connection 
+    CONN_PROXY, // a dynomite proxy (listening) connection
     CONN_CLIENT, // this is connected to a client connection
     CONN_SERVER, // this is connected to underlying datastore ...redis/memcache
     CONN_DNODE_PEER_PROXY, // this is a dnode (listening) connection...default 8101
@@ -123,6 +123,7 @@ struct conn {
     unsigned           connecting:1;  /* connecting? */
     unsigned           connected:1;   /* connected? */
     unsigned           eof:1;         /* eof? aka passive close? */
+    unsigned           auth:1;        /* auth flag */
     unsigned           waiting_to_unref:1; /* eof? aka passive close? */
     unsigned           done:1;        /* done? aka close? */
     unsigned           dyn_mode:1;           /* is a dyn connection? */

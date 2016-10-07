@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 /*
  * twemproxy - A fast and lightweight proxy for memcached protocol.
@@ -201,6 +201,7 @@ _conn_get(void)
     conn->eof = 0;
     conn->done = 0;
     conn->waiting_to_unref = 0;
+    conn->auth = 0;
 
     /* for dynomite */
     conn->dyn_mode = 0;
@@ -221,6 +222,18 @@ _conn_get(void)
     strncpy((char *)conn->aes_key, (char *)aes_key, strlen((char *)aes_key)); //generate a new key for each connection
 
     return conn;
+}
+
+static int
+is_auth_set(void *owner) {
+  struct server_pool *pool = (struct server_pool *)(owner);
+  int ret = 0;
+
+  if (g_data_store == DATA_REDIS && pool->redis_auth.len > 0) {
+    ret = 1;
+  }
+
+  return ret;
 }
 
 inline void
@@ -304,12 +317,15 @@ conn_get(void *owner, bool client)
     conn->dyn_mode = 0;
 
     if (client) {
+        conn->auth = is_auth_set(owner);
         /*
          * client receives a request, possibly parsing it, and sends a
          * response downstream.
          */
         init_client_conn(conn);
     } else {
+        struct server *server = (struct server *)owner;
+        conn->auth = is_auth_set(owner);
         /*
          * server receives a response, possibly parsing it, and sends a
          * request upstream.
@@ -716,4 +732,3 @@ conn_print(struct conn *conn)
 	log_debug(LOG_VERB, "eof %d", conn->eof);
 	log_debug(LOG_VERB, "err %d", conn->err);
 }
-

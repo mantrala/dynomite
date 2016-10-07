@@ -1,7 +1,7 @@
 /*
  * Dynomite - A thin, distributed replication layer for multi non-distributed storages.
  * Copyright (C) 2014 Netflix, Inc.
- */ 
+ */
 
 /*
  * twemproxy - A fast and lightweight proxy for memcached protocol.
@@ -29,7 +29,7 @@
  * - outstanding_msgs_dict : This is a hash table (HT) of request id to request
  *   mapping. When it receives a request, it adds the message to the HT, and
  *   removes it when it finished responding. We need a hash table mainly for
- *   implementing consistency. When a response is received from a peer, it is 
+ *   implementing consistency. When a response is received from a peer, it is
  *   handed over to the client connection. It uses this HT to get the request &
  *   calls the request's response handler.
  * - waiting_to_unref: Now that we distribute messages to multiple nodes and that
@@ -386,6 +386,74 @@ req_recv_next(struct context *ctx, struct conn *conn, bool alloc)
     return msg;
 }
 
+static struct mbuf *
+get_mbuf(struct msg *msg)
+{
+    struct mbuf *mbuf;
+
+    mbuf = STAILQ_LAST(&msg->mhdr, mbuf, next);
+    if (mbuf == NULL || mbuf_full(mbuf)) {
+        mbuf = mbuf_get();
+        if (mbuf == NULL) {
+            return NULL;
+        }
+
+        mbuf_insert(&msg->mhdr, mbuf);
+        msg->pos = mbuf->pos;
+    }
+    ASSERT(mbuf->end - mbuf->last > 0);
+    return mbuf;
+}
+
+bool
+valid_auth(struct context *ctx, struct conn *conn, struct msg *msg)
+{
+    struct server_pool *pool = (struct server_pool *)conn->owner;
+
+    if (pool->redis_auth.len > 0) {
+        long keylen = msg->key_end - msg->key_start;
+        if (keylen != pool->redis_auth.len) {
+            return false;
+        }
+
+        if (memcmp(pool->redis_auth.data, msg->key_start, keylen) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static void
+reply(struct context *ctx, struct conn *conn, struct msg *smsg, char *_msg) {
+    struct mbuf *mbuf;
+    int n;
+    struct msg *msg = msg_get(conn, true, __FUNCTION__);
+    if (msg == NULL) {
+        conn->err = errno;
+        return;
+    }
+
+    mbuf = get_mbuf(msg);
+    if (mbuf == NULL) {
+        msg_put(msg);
+        return;
+    }
+
+    smsg->peer = msg;
+    msg->peer = smsg;
+    msg->request = 0;
+
+    n = (int)strlen(_msg);
+    memcpy(mbuf->last, _msg, (size_t)n);
+    mbuf->last += n;
+    msg->mlen += (uint32_t)n;
+    smsg->done = 1;
+
+    event_add_out(ctx->evb, conn);
+    conn_enqueue_outq(ctx, conn, smsg);
+}
+
 static bool
 req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
 {
@@ -410,6 +478,25 @@ req_filter(struct context *ctx, struct conn *conn, struct msg *msg)
         conn->eof = 1;
         conn->recv_ready = 0;
         req_put(msg);
+        return true;
+    }
+
+    /*
+     * Hanlde "AUTH requirepass\r\n"
+     *
+     */
+    if (conn->auth) {
+        if (msg->type == MSG_REQ_REDIS_AUTH) {
+            if (valid_auth(ctx, conn, msg)) {
+                conn->auth = 0;
+                reply(ctx, conn, msg, "+OK\r\n");
+            } else {
+                reply(ctx, conn, msg, "-ERR invalid password\r\n");
+            }
+        } else {
+            reply(ctx, conn, msg, "-ERR operation not permitted\r\n");
+        }
+
         return true;
     }
 
@@ -676,7 +763,7 @@ admin_local_req_forward(struct context *ctx, struct conn *c_conn, struct msg *ms
 }
 
 void
-remote_req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg, 
+remote_req_forward(struct context *ctx, struct conn *c_conn, struct msg *msg,
                    struct rack *rack, uint8_t *key, uint32_t keylen)
 {
     ASSERT((c_conn->type == CONN_CLIENT) ||
@@ -968,7 +1055,7 @@ req_recv_done(struct context *ctx, struct conn *conn,
     req_forward(ctx, conn, msg);
 }
 
-static msg_response_handler_t 
+static msg_response_handler_t
 msg_get_rsp_handler(struct msg *req)
 {
     if ((req->consistency == DC_ONE) ||
@@ -1072,7 +1159,7 @@ struct conn_ops client_ops = {
     NULL,
     req_client_enqueue_omsgq,
     req_client_dequeue_omsgq,
-    client_handle_response 
+    client_handle_response
 };
 
 void
